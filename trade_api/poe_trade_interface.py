@@ -50,7 +50,6 @@ class POETradeInterface():
             Example output: "http://poe.trade/search/imakumakaugogo"
         """
         self._browser.open("http://poe.trade/")
-        print self._browser.forms()
         # There are two forms, the second one is the search form
         # Both forms don't have names so we just know the 2nd one is the right one
         self._browser.form = list(self._browser.forms())[1]
@@ -160,4 +159,9 @@ class POETradeInterface():
                 "pdps": "pDPS",
         }
         print tabulate(data[:5], headers, tablefmt="rst")
+
+    def get_cheapest_query_array(self, url):
+        data = self.get_query_url_results(url)
+        data = self._sort_by_price(data)
+        return data
 
