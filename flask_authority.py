@@ -53,9 +53,11 @@ def connect_database(db_path):
         return None
 
 def query_database(db_path, query):
+    # need to add with closing to this in the future
     conn = connect_database(db_path) 
     cursor = conn.cursor()
     cursor.execute(query)
+    conn.commit()
     return cursor
 
 def modify_flask_url_table(db_path, run, league_type):
@@ -68,6 +70,60 @@ def modify_flask_url_table(db_path, run, league_type):
     cursor.execute(update_flask, run)
     conn.commit()
     conn.close()
+
+def populate_flask_tables(flask_array, resume):
+    # resume is either an int of value 0, or a list formatted as: [1, "Flask Name"]
+    print("resume type and value " + str(type(resume)))
+    if type(resume) is int: 
+        if resume!=0:
+            # set resume to 0
+            resume = 0
+    elif type(resume) is list: 
+        if resume[0]!=1:
+            # improperly formatted, set resume to 0
+            resume = 0
+        else:
+            # basic checking for flask name
+            if "flask".lower() in resume[1].lower():
+                flask_name = resume[1]
+                resume = 1
+    
+    if resume==1:
+        # process resume from specific index+1
+        print("resuming flask url import run")
+        index = flask_array.index(flask_name)
+        for flask in flask_array[index+1:]:
+            sc_args = {"name":flask, "league":["Legion"]}
+            hc_args = {"name":flask, "league":["Hardcore Legion"]}
+            sc_url = interface.get_query_url(sc_args)
+            hc_url = interface.get_query_url(hc_args)
+            
+            # add flask results to default tables
+            sc_run = (flask, sc_url)
+            hc_run = (flask, hc_url)
+            print("importing " + str(sc_run) + " | " + str(hc_url)) 
+            modify_flask_url_table(flask_db_path, sc_run, "sc")
+            modify_flask_url_table(flask_db_path, hc_run, "hc")
+            
+            # pause to be friendly to the server
+            time.sleep(random.uniform(1,3))
+    elif resume==0:
+        # do not resume
+        for flask in flask_array:
+            sc_args = {"name":flask, "league":["Legion"]}
+            hc_args = {"name":flask, "league":["Hardcore Legion"]}
+            sc_url = interface.get_query_url(sc_args)
+            hc_url = interface.get_query_url(hc_args)
+            
+            # add flask results default table    
+            sc_run = (flask, sc_url)
+            hc_run = (flask, hc_url)
+            print("importing " + str(sc_run) + " | " + str(hc_url)) 
+            modify_flask_url_table(flask_db_path, sc_run, "sc")
+            modify_flask_url_table(flask_db_path, hc_run, "hc")
+            
+            # pause to be friendly to the server
+            time.sleep(random.uniform(1,3))
 
 # init interface
 interface = POETradeInterface()
@@ -94,7 +150,7 @@ print("processing this many flasks: " + str(len(flask_array)))
 sc_results = []
 hc_results = []
 
-# create flask_authority database
+# create flask_authority database if not exists
 flask_db = "flask_authority.db" 
 flask_db_dir = os.path.join(os.path.expanduser("~"), "poe-flask-app/db")
 flask_db_path = os.path.join(flask_db_dir, flask_db)
@@ -116,22 +172,43 @@ for table in flask_url_tables:
     row_count += result[0]
 
 if row_count!=len(flask_array)*2:
-    # populate flask url table
-    for flask in flask_array:
-        # Build args, generate urls
-        sc_args = {"name":flask, "league":["Legion"]}
-        hc_args = {"name":flask, "league":["Hardcore Legion"]}
-        sc_url = interface.get_query_url(sc_args)
-        hc_url = interface.get_query_url(hc_args)
+    print("length neq " + str(len(flask_array)*2))
+    if row_count>0: 
+        print("row count: " + str(row_count))
+        # let's assume that there is some properly formatted data and try to resume from a position
+        name_results = []
+        for table in flask_url_tables:
+            query = "SELECT * from {} WHERE id= (select max(id) from {});".format(table, table)
+            print(query)
+            cursor = query_database(flask_db_path, query)
+            name_results.append(cursor.fetchone()[1])
         
-        # add flask results default table    
-        sc_run = (flask, sc_url)
-        hc_run = (flask, hc_url)
-        print("importing " + str(sc_run) + " | " + str(hc_url)) 
-        modify_flask_url_table(flask_db_path, sc_run, "sc")
-        modify_flask_url_table(flask_db_path, hc_run, "hc")
+        print(name_results[0] + " :: " + name_results[1])
+        if name_results[0]!=name_results[1]:
+            print("name results: " + name_results[0] + " :: " + name_results[1])
+            # sc doesn't match hc, let's find the first row that has name equality and drop everything after that
+            query = """select max(flask_urls_sc.id) FROM 
+                        flask_urls_sc LEFT JOIN flask_urls_hc ON 
+                        flask_urls_sc.flask_name = flask_urls_hc.flask_name WHERE 
+                        flask_urls_sc.flask_name = flask_urls_hc.flask_name;"""
+            cursor = query_database(flask_db_path, query)
+            last_good_id = cursor.execute(query).fetchone()[0]
+            
+            # delete rows after our last good id
+            for table in flask_url_tables:
+                query = "DELETE FROM {} where id>{};".format(table, last_good_id)
+                cursor = query_database(flask_db_path, query) 
+           
+            # restart flask url import execution, hardcoding sc since we should have name equality now
+            query = "SELECT * from flask_urls_sc WHERE id= (select max(id) from flask_urls_sc);"
+            cursor = query_database(flask_db_path, query)
+            flask_name = cursor.fetchone()[1]
+            resume = [1, flask_name]
+            print("resuming from flask name: " + resume[1])
+            populate_flask_tables(flask_array, resume)
+    else: 
+        print("populating database with new data")
+        populate_flask_tables(flask_array, 0)
 
-        # pause to be friendly to the server
-        time.sleep(random.uniform(1,3))
 
 #sc_results = interface.get_cheapest.query_results(url) 
