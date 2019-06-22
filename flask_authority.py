@@ -73,7 +73,7 @@ def modify_flask_url_table(db_path, run, league_type):
 
 def populate_flask_tables(flask_array, resume):
     # resume is either an int of value 0, or a list formatted as: [1, "Flask Name"]
-    print("resume type and value " + str(type(resume)))
+    # print("resume var type and value " + str(type(resume)))
     if type(resume) is int: 
         if resume!=0:
             # set resume to 0
@@ -172,20 +172,18 @@ for table in flask_url_tables:
     row_count += result[0]
 
 if row_count!=len(flask_array)*2:
-    print("length neq " + str(len(flask_array)*2))
     if row_count>0: 
-        print("row count: " + str(row_count))
+        print("current db row count: " + str(row_count))
         # let's assume that there is some properly formatted data and try to resume from a position
         name_results = []
         for table in flask_url_tables:
             query = "SELECT * from {} WHERE id= (select max(id) from {});".format(table, table)
-            print(query)
             cursor = query_database(flask_db_path, query)
             name_results.append(cursor.fetchone()[1])
         
-        print(name_results[0] + " :: " + name_results[1])
+        #print(name_results[0] + " :: " + name_results[1])
         if name_results[0]!=name_results[1]:
-            print("name results: " + name_results[0] + " :: " + name_results[1])
+            print("comparing name results: " + name_results[0] + " :: " + name_results[1])
             # sc doesn't match hc, let's find the first row that has name equality and drop everything after that
             query = """select max(flask_urls_sc.id) FROM 
                         flask_urls_sc LEFT JOIN flask_urls_hc ON 
