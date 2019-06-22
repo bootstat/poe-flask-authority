@@ -90,7 +90,7 @@ hc_results = []
 
 # create flask_authority database
 flask_db = "flask_authority.db" 
-flask_db_dir = os.path.join(os.path.expanduser("~"), "poe_flask_authority/db")
+flask_db_dir = os.path.join(os.path.expanduser("~"), "poe-flask-app/db")
 flask_db_path = os.path.join(flask_db_dir, flask_db)
 if not os.path.exists(flask_db_dir):
     os.makedirs(flask_db_dir)
