@@ -52,6 +52,12 @@ def connect_database(db_path):
         print(e)  
         return None
 
+def query_database(db_path, query):
+    conn = connect_database(db_path) 
+    cursor = conn.cursor()
+    cursor.execute(query)
+    return cursor
+
 def modify_flask_url_table(db_path, run, league_type):
     conn = connect_database(db_path)
     if league_type=="sc":
@@ -100,26 +106,32 @@ if not os.access(flask_db_path, os.R_OK):
     flask_db = "flask_authority.db"
     create_database(flask_db_path)
 
-# populate flask url table
-for flask in flask_array:
-    # Build args, generate urls
-    sc_args = {"name":flask, "league":["Legion"]}
-    hc_args = {"name":flask, "league":["Hardcore Legion"]}
-    sc_url = interface.get_query_url(sc_args)
-    hc_url = interface.get_query_url(hc_args)
-    
-    # add flask results default table    
-    sc_run = (flask, sc_url)
-    hc_run = (flask, hc_url)
-    print("importing " + str(sc_run) + " | " + str(hc_url)) 
-    modify_flask_url_table(flask_db_path, sc_run, "sc")
-    modify_flask_url_table(flask_db_path, hc_run, "hc")
+# database should contain flask_array*2 rows, check before populating
+flask_url_tables = ["flask_urls_sc", "flask_urls_hc"]
+row_count = 0
+for table in flask_url_tables:
+    query = "SELECT COUNT(*) from {}".format(table)
+    cursor = query_database(flask_db_path, query)
+    result = cursor.fetchone()
+    row_count += result[0]
 
-    # pause to be friendly to the server
-    time.sleep(random.uniform(1,3))    
+if row_count!=len(flask_array)*2:
+    # populate flask url table
+    for flask in flask_array:
+        # Build args, generate urls
+        sc_args = {"name":flask, "league":["Legion"]}
+        hc_args = {"name":flask, "league":["Hardcore Legion"]}
+        sc_url = interface.get_query_url(sc_args)
+        hc_url = interface.get_query_url(hc_args)
+        
+        # add flask results default table    
+        sc_run = (flask, sc_url)
+        hc_run = (flask, hc_url)
+        print("importing " + str(sc_run) + " | " + str(hc_url)) 
+        modify_flask_url_table(flask_db_path, sc_run, "sc")
+        modify_flask_url_table(flask_db_path, hc_run, "hc")
 
+        # pause to be friendly to the server
+        time.sleep(random.uniform(1,3))
 
 #sc_results = interface.get_cheapest.query_results(url) 
-
-
-
