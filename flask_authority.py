@@ -90,7 +90,7 @@ def populate_flask_tables(flask_array, resume):
     
     if resume==1:
         # process resume from specific index+1
-        print("resuming flask url import run")
+        #print("resuming flask url import run")
         index = flask_array.index(flask_name)
         for flask in flask_array[index+1:]:
             sc_args = {"name":flask, "league":["Legion"]}
@@ -144,7 +144,7 @@ for flask_name in flask_names:
             flask_array.append((prefix_name + " " + flask_name + " " + flask_static[0] + " " + flask_static[1] + " " + suffix_name))
 
 # print(flask_array)
-print("processing this many flasks: " + str(len(flask_array)))
+print("planning a process for this many flasks: " + str(len(flask_array)))
 
 # flask results
 sc_results = []
@@ -173,15 +173,15 @@ for table in flask_url_tables:
 
 if row_count!=len(flask_array)*2:
     if row_count>0: 
-        print("current db row count: " + str(row_count))
         # let's assume that there is some properly formatted data and try to resume from a position
+        print("current combined url table row count: " + str(row_count))
         name_results = []
         for table in flask_url_tables:
             query = "SELECT * from {} WHERE id= (select max(id) from {});".format(table, table)
             cursor = query_database(flask_db_path, query)
             name_results.append(cursor.fetchone()[1])
         
-        #print(name_results[0] + " :: " + name_results[1])
+        #print(name_results[0] + "::" + name_results[1])
         if name_results[0]!=name_results[1]:
             print("comparing name results: " + name_results[0] + " :: " + name_results[1])
             # sc doesn't match hc, let's find the first row that has name equality and drop everything after that
@@ -202,11 +202,16 @@ if row_count!=len(flask_array)*2:
             cursor = query_database(flask_db_path, query)
             flask_name = cursor.fetchone()[1]
             resume = [1, flask_name]
-            print("resuming from flask name: " + resume[1])
+            print("cleaned up table, resuming from flask name: " + resume[1])
+            populate_flask_tables(flask_array, resume)
+        elif name_results[0]==name_results[1]:
+            # tables have name equality, resume from bottom
+            flask_name = name_results[0]
+            resume = [1, flask_name]
+            print("resuming from: " + flask_name)
             populate_flask_tables(flask_array, resume)
     else: 
         print("populating database with new data")
         populate_flask_tables(flask_array, 0)
-
 
 #sc_results = interface.get_cheapest.query_results(url) 
